@@ -5,10 +5,10 @@ import HTML5Backend from 'react-dnd-html5-backend-filedrop';
 import './filespage.scss';
 import './error.scss';
 import { Files } from '../model/';
-import { sort, onCreate, onRename, onDelete, onUpload } from './filespage.helper';
+import { sort, onCreate, onRename, onDelete, onUpload, onSearch } from './filespage.helper';
 import { NgIf, Loader, Uploader, EventReceiver } from '../components/';
 import { notify, debounce, goToFiles, goToViewer, event, settings_get, settings_put } from '../helpers/';
-import { BreadCrumb, FileSystem, FrequentlyAccess } from './filespage/';
+import { BreadCrumb, FileSystem, FrequentlyAccess, Submenu } from './filespage/';
 import InfiniteScroll from 'react-infinite-scroller';
 
 const PAGE_NUMBER_INIT = 3;
@@ -26,6 +26,7 @@ export class FilesPage extends React.Component {
             show_hidden: settings_get('filespage_show_hidden') || CONFIG["display_hidden"],
             view: settings_get('filespage_view') || 'grid',
             files: [],
+            search_loading: false,
             metadata: null,
             frequents: [],
             page_number: PAGE_NUMBER_INIT,
@@ -166,6 +167,32 @@ export class FilesPage extends React.Component {
         });
     }
 
+    onSearch(search){
+        if(search == null || search.length === 0){
+            this.onRefresh();
+            return;
+        }
+        if(search.length < 2){
+            return;
+        }
+
+        if(this._search){
+            this._search.unsubscribe();
+        }
+
+        this._search = onSearch(search, this.state.path).subscribe((message) => {
+            if(message.type === "search::found"){
+                this.setState({
+                    files: message.files || [],
+                    metadata: {
+                        can_rename: false,
+                        can_delete: false
+                    }
+                });
+            }
+        });
+    }
+
     loadMore(){
         requestAnimationFrame(() => {
             let page_number = this.state.page_number + 1;
@@ -189,9 +216,12 @@ export class FilesPage extends React.Component {
                       <NgIf cond={this.state.path === '/'}>
                         <FrequentlyAccess files={this.state.frequents}/>
                       </NgIf>
-                      <FileSystem path={this.state.path} sort={this.state.sort} view={this.state.view}
-                                  files={this.state.files.slice(0, this.state.page_number * LOAD_PER_SCROLL)}
-                                  metadata={this.state.metadata} onSort={this.onSort.bind(this)} onView={this.onView.bind(this)} />
+                      <Submenu path={this.state.path} sort={this.state.sort} view={this.state.view} onSearch={this.onSearch.bind(this)} onViewUpdate={(value) => this.onView(value)} onSortUpdate={(value) => {this.onSort(value);}} accessRight={this.state.metadata || {}}></Submenu>
+                      <NgIf cond={true}>
+                        <FileSystem path={this.state.path} sort={this.state.sort} view={this.state.view}
+                                    files={this.state.files.slice(0, this.state.page_number * LOAD_PER_SCROLL)}
+                                    metadata={this.state.metadata} onSort={this.onSort.bind(this)} onView={this.onView.bind(this)} />
+                      </NgIf>
                       <Uploader path={this.state.path} />
                     </NgIf>
                   </InfiniteScroll>

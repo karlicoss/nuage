@@ -369,6 +369,7 @@ class FileSystem{
             if(value.access_count >= 1 && value.path !== "/"){
                 data.push(value);
             }
+            return true;
         }).then(() => {
             return Promise.resolve(
                 data
